@@ -4,45 +4,45 @@ from core import argon2_hash
 
 
 def main():
-    # 1. Inicjalizacja parsera argumentów linii komend
-    parser = argparse.ArgumentParser(description="Argon2 w Pythonie")
+    # 1. Initialize command-line argument parser
+    parser = argparse.ArgumentParser(description="Argon2 in Python")
 
-    # Sól to jedyny argument pozycyjny (wymagany)
-    parser.add_argument("salt", help="Sól do hashowania (min. 8 znaków)")
+    # Salt is the only positional argument (required)
+    parser.add_argument("salt", help="Salt for hashing (minimum 8 characters)")
 
-    # 2. Tworzenie grupy wzajemnie wykluczających się opcji dla wyboru trybu algorytmu
+    # 2. Create mutually exclusive group for algorithm mode selection
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("-i", action="store_const", dest="mode", const=1, help="Użyj Argon2i (domyślny)")
-    group.add_argument("-d", action="store_const", dest="mode", const=0, help="Użyj Argon2d")
-    group.add_argument("-id", action="store_const", dest="mode", const=2, help="Użyj Argon2id")
+    group.add_argument("-i", action="store_const", dest="mode", const=1, help="Use Argon2i (default)")
+    group.add_argument("-d", action="store_const", dest="mode", const=0, help="Use Argon2d")
+    group.add_argument("-id", action="store_const", dest="mode", const=2, help="Use Argon2id")
 
-    # Jeśli użytkownik nie wybierze flagi, domyślnie odpali się Argon2i (mode=1)
+    # If no flag is specified, default to Argon2i (mode=1)
     parser.set_defaults(mode=1)
 
-    # 3. Definiowanie opcjonalnych parametrów konfiguracyjnych (flagi -t, -m, -p, -l)
-    parser.add_argument("-t", type=int, default=3, help="Liczba iteracji / koszt czasowy (domyślnie 3)")
-    parser.add_argument("-m", type=int, default=12, help="Wykładnik pamięci 2^N KiB (domyślnie 12, czyli 4096 KiB)")
-    parser.add_argument("-p", type=int, default=1, help="Równoległość / stopień użycia wątków (domyślnie 1)")
-    parser.add_argument("-l", type=int, default=32, dest="l", help="Docelowa długość hasha w bajtach (domyślnie 32)")
+    # 3. Define optional configuration parameters (flags -t, -m, -p, -l)
+    parser.add_argument("-t", type=int, default=3, help="Number of iterations / time cost (default: 3)")
+    parser.add_argument("-m", type=int, default=12, help="Memory cost exponent 2^N KiB (default: 12, i.e., 4096 KiB)")
+    parser.add_argument("-p", type=int, default=1, help="Parallelism / thread count (default: 1)")
+    parser.add_argument("-l", type=int, default=32, dest="l", help="Target hash length in bytes (default: 32)")
 
-    # Przetworzenie wpisanych przez użytkownika argumentów do obiektu 'args'
+    # Parse command-line arguments into 'args' object
     args = parser.parse_args()
 
-    # 4. Blokada bezpieczeństwa: sprawdzenie czy hasło płynie przez potok (pipe '|')
-    # sys.stdin.isatty() zwraca True, jeśli program został odpalony "goły" i czeka na wpisywanie z klawiatury
+    # 4. Security check: verify password is piped via stdin ('|')
+    # sys.stdin.isatty() returns True if the program is run directly and waiting for keyboard input
     if sys.stdin.isatty():
-        print("BŁĄD: Podaj hasło przez strumień wejścia (pipe)!")
-        print("Przykład: echo -n 'password' | python cli.py somesalt -t 2 -m 16 -p 4 -l 24")
+        print("ERROR: Provide password via standard input pipe!")
+        print("Example: echo -n 'password' | python cli.py somesalt -t 2 -m 16 -p 4 -l 24")
         sys.exit(1)
 
-    # 5. Pobranie danych wejściowych z potoku oraz konwersja typów
-    pwd = sys.stdin.read().encode('utf-8')  # Odczyt hasła ze strumienia i zamiana na bajty
-    salt = args.salt.encode('utf-8')  # Zamiana tekstowej soli na bajty
+    # 5. Read input from stdin pipe and convert types
+    pwd = sys.stdin.read().encode('utf-8')  # Read password from stream and convert to bytes
+    salt = args.salt.encode('utf-8')  # Convert text salt to bytes
 
-    # Przeliczenie kosztu pamięciowego za pomocą przesunięcia bitowego (potęgowanie dwójki)
-    m_cost = 1 << args.m  # Np. 1 << 12 daje binarnie 4096 KiB (4 MiB)
+    # Calculate memory cost using bit shifting (powers of two)
+    m_cost = 1 << args.m  # E.g. 1 << 12 gives 4096 KiB (4 MiB)
 
-    # 6. Wywołanie głównej funkcji kryptograficznej z pliku core.py
+    # 6. Call main cryptographic function from core.py
     hash_bytes = argon2_hash(
         password=pwd,
         salt=salt,
@@ -53,10 +53,10 @@ def main():
         mode=args.mode
     )
 
-    # 7. Słownik mapujący identyfikatory liczbowe na czytelne nazwy wariantów
+    # 7. Dictionary mapping numeric identifiers to readable variant names
     mode_name = {0: "Argon2d", 1: "Argon2i", 2: "Argon2id"}[args.mode]
 
-    # 8. Wyświetlenie raportu końcowego w formacie zgodnym z oficjalną aplikacją w C
+    # 8. Display final report formatted to match the official C application
     print(f"Type:           {mode_name}")
     print(f"Iterations:     {args.t}")
     print(f"Memory:         {m_cost} KiB")
